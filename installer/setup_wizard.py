@@ -207,33 +207,18 @@ def step_elevenlabs() -> tuple[str, str, str, str]:
     return api_key, voice_a, voice_b, model
 
 
-def step_paper_sourcing() -> str:
-    section("Paper sourcing")
-    return gum_input(
-        prompt="arXiv categories> ",
-        header="Comma-separated arXiv category codes to monitor. See the full "
-               "taxonomy at https://arxiv.org/category_taxonomy.",
-        placeholder="e.g. cs.RO, cs.LG, cs.AI, cs.CV",
-        default="cs.RO, cs.LG, cs.AI, cs.CV",
-    )
-
-
-def step_interests(categories: str) -> None:
+def step_interests() -> None:
+    section("Research interests")
     template = (TEMPLATES / "interests.md.tmpl").read_text()
-    placeholder = gum_input(
-        prompt="One-line interests> ",
-        header="What you research / care about. Used by the embedding model "
-               "and Claude to pick papers. You'll get to flesh this out in an "
-               "editor next.",
-        placeholder="e.g. robot learning, sim-to-real, dexterous manipulation",
-        default="robot learning",
-    )
-    body = template.format(categories=categories, placeholder_topic=placeholder)
     target = REPO_ROOT / "config" / "interests.md"
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(body, encoding="utf-8")
+    target.write_text(template, encoding="utf-8")
     editor = os.environ.get("EDITOR") or shutil.which("nano") or "vi"
-    if gum_confirm(f"Open {target.name} in {editor} now to flesh it out?"):
+    print("  PaperFetcher monitors AI / ML / robotics / CV / NLP on arXiv")
+    print("  (cs.AI, cs.LG, cs.RO, cs.CV, cs.CL). Each day, the ranker + Claude")
+    print("  pick the single most relevant paper based on what you write below.")
+    print(f"  Take a few minutes to describe your research interests in prose.")
+    if gum_confirm(f"Open {target.name} in {editor} now?", default_yes=True):
         subprocess.run([editor, str(target)], check=False)
 
 
@@ -365,8 +350,7 @@ def main() -> int:
         voice_a, voice_b = step_edge_voices()
         api_key, elevenlabs_model = "", "eleven_turbo_v2_5"
 
-    categories = step_paper_sourcing()
-    step_interests(categories)
+    step_interests()
     oncalendar = step_schedule()
     rclone_remote, rclone_folder = step_rclone()
 

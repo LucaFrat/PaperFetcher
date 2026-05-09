@@ -66,17 +66,17 @@ def main(argv: list[str] | None = None) -> int:
             "backend to 'edge_tts' in config/settings.toml.")
         return 4
 
-    categories, interests_body = parse_interests(settings.paths.interests)
-    if not categories:
-        logger.error("no categories in %s frontmatter", settings.paths.interests)
+    interests_body = parse_interests(settings.paths.interests)
+    if not interests_body:
+        logger.error("interests.md is empty: %s", settings.paths.interests)
         return 2
-    logger.info("categories: %s", categories)
+    logger.info("categories: %s", fetch_mod.DEFAULT_CATEGORIES)
 
     excluded = state_mod.load(settings.paths.state_file)
     logger.info("picked.json holds %d ids", len(excluded))
 
     papers = fetch_mod.fetch_recent(
-        categories=categories,
+        categories=fetch_mod.DEFAULT_CATEGORIES,
         window_hours=settings.fetch.window_hours,
         request_delay_seconds=settings.fetch.request_delay_seconds,
         exclude_ids=excluded,

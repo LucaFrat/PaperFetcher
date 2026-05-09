@@ -81,18 +81,15 @@ def load_settings(repo_root: Path | None = None) -> Settings:
     )
 
 
-def parse_interests(path: Path) -> tuple[list[str], str]:
+def parse_interests(path: Path) -> str:
+    """Return the prose body of interests.md.
+
+    Tolerates an optional leading YAML-style frontmatter block (legacy: it
+    used to carry the arXiv categories list, now hardcoded in fetch.py).
+    """
     text = path.read_text(encoding="utf-8")
-    categories: list[str] = []
-    body = text
     if text.startswith("---"):
         end = text.find("\n---", 3)
         if end != -1:
-            front = text[3:end]
-            body = text[end + 4 :].lstrip("\n")
-            for line in front.splitlines():
-                if ":" in line:
-                    k, v = line.split(":", 1)
-                    if k.strip().lower() == "categories":
-                        categories = [c.strip() for c in v.split(",") if c.strip()]
-    return categories, body.strip()
+            text = text[end + 4 :].lstrip("\n")
+    return text.strip()
