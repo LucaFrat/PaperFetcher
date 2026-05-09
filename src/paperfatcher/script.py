@@ -44,12 +44,18 @@ def _build_outline(paper: Paper, paper_text: str) -> str:
     return claude_cli.text(prompt, label="outline", timeout=900)
 
 
-def _build_dialogue(paper: Paper, paper_text: str, outline: str) -> dict:
+def _build_dialogue(paper: Paper, paper_text: str, outline: str,
+                    *, target_minutes: int) -> dict:
+    words_lo = round(target_minutes * 140)
+    words_hi = round(target_minutes * 170)
+    lines_lo = max(20, round(target_minutes * 3.5))
+    lines_hi = max(28, round(target_minutes * 4.5))
     prompt = (
         "Write a podcast-style dialogue between two co-hosts (A and B) "
-        "discussing the arXiv paper below. Target ~10 minutes of audio — "
-        "roughly 1400-1600 words total across both speakers, about "
-        "38-48 lines that vary in length (one sentence to a short paragraph). "
+        f"discussing the arXiv paper below. Target ~{target_minutes} minutes "
+        f"of audio — roughly {words_lo}-{words_hi} words total across both "
+        f"speakers, about {lines_lo}-{lines_hi} lines that vary in length "
+        "(one sentence to a short paragraph). "
         "A is the curious one driving the conversation; B is the expert "
         "who has read the paper deeply. Use natural speech: contractions, "
         "occasional asides, light humor. Don't pad — every exchange should "
@@ -96,7 +102,7 @@ def _build_dialogue(paper: Paper, paper_text: str, outline: str) -> dict:
         "properties": {
             "dialogue": {
                 "type": "array",
-                "minItems": 24,
+                "minItems": max(20, round(target_minutes * 2.4)),
                 "items": {
                     "type": "object",
                     "properties": {
@@ -115,14 +121,15 @@ def _build_dialogue(paper: Paper, paper_text: str, outline: str) -> dict:
                                timeout=900)
 
 
-def generate(paper: Paper, paper_text: str, dest_dir: Path) -> Path:
+def generate(paper: Paper, paper_text: str, dest_dir: Path,
+             *, target_minutes: int = 10) -> Path:
     dest_dir.mkdir(parents=True, exist_ok=True)
 
     outline = _build_outline(paper, paper_text)
     (dest_dir / "outline.md").write_text(outline, encoding="utf-8")
     logger.info("wrote outline.md (%d chars)", len(outline))
 
-    obj = _build_dialogue(paper, paper_text, outline)
+    obj = _build_dialogue(paper, paper_text, outline, target_minutes=target_minutes)
 
     if not isinstance(obj, dict) or "dialogue" not in obj:
         raise ValueError(f"script JSON missing .dialogue: {str(obj)[:300]}")

@@ -1,0 +1,10 @@
+[Unit]
+Description=PaperFetcher daily timer
+
+[Timer]
+OnCalendar={oncalendar}
+Persistent=true
+Unit=paperfetcher.service
+
+[Install]
+WantedBy=timers.target

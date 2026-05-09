@@ -7,18 +7,18 @@ shortlist_size  = 30
 embedding_model = "sentence-transformers/all-MiniLM-L6-v2"
 
 [script]
-target_minutes = 10
+target_minutes = {target_minutes}
 
 [audio]
-backend = "elevenlabs"                   # "elevenlabs" or "edge_tts"
-voice_a = "J2FGlQG8Gd7x8uEDt2H8"
-voice_b = "Fahco4VZzobUeiPqni1S"
-elevenlabs_model         = "eleven_turbo_v2_5"
+backend = "{audio_backend}"
+voice_a = "{voice_a}"
+voice_b = "{voice_b}"
+elevenlabs_model         = "{elevenlabs_model}"
 elevenlabs_output_format = "mp3_44100_128"
 
 [deliver]
-rclone_remote  = "lucaPapers:PaperFatcher"
-local_fallback = "~/PaperFatcher-output"
+rclone_remote  = "{rclone_remote}:{rclone_folder}"
+local_fallback = "~/PaperFetcher-output"
 
 [paths]
 output_dir = "output"

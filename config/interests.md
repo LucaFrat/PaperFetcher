@@ -1,7 +1,3 @@
----
-categories: cs.RO, cs.LG, cs.AI, cs.CV
----
-
 # Research interests
 
 Primary focus: **robot learning** — methods that combine machine learning with

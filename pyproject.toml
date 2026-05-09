@@ -9,6 +9,7 @@ dependencies = [
     "requests>=2.32",
     "elevenlabs>=1.10.0",
     "pymupdf>=1.24.0",
+    "edge-tts>=6.1.10",
 ]
 
 [project.scripts]

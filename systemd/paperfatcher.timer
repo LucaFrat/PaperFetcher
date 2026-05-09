@@ -2,7 +2,7 @@
 Description=PaperFatcher daily timer
 
 [Timer]
-OnCalendar=*-*-* 05:30:00
+OnCalendar=Mon..Fri *-*-* 05:30:00
 Persistent=true
 Unit=paperfatcher.service
 

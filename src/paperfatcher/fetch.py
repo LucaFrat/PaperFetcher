@@ -18,6 +18,17 @@ _RSS_URL = "https://export.arxiv.org/rss/{cat}"
 _DC_NS = "http://purl.org/dc/elements/1.1/"
 _ARXIV_NS = "http://arxiv.org/schemas/atom"
 
+# arXiv categories the pipeline pulls from. PaperFetcher targets the AI /
+# robotics community, so this set is hardcoded — the per-user filtering
+# happens later (embedding ranker + Claude) using config/interests.md prose.
+DEFAULT_CATEGORIES: list[str] = [
+    "cs.AI",   # Artificial Intelligence
+    "cs.LG",   # Machine Learning
+    "cs.RO",   # Robotics
+    "cs.CV",   # Computer Vision
+    "cs.CL",   # Computation and Language (NLP / LLMs)
+]
+
 
 @dataclass(frozen=True)
 class Paper:
