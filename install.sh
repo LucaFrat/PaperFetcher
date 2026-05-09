@@ -5,6 +5,10 @@
 set -euo pipefail
 
 readonly REPO_URL="https://github.com/LucaFrat/PaperFetcher.git"
+# Branch to clone. Override with PAPERFETCHER_BRANCH=<branch> for testing.
+# Defaults to the current development branch; will switch to "main" once
+# feat/easy-install is merged.
+readonly BRANCH="${PAPERFETCHER_BRANCH:-feat/easy-install}"
 readonly INSTALL_DIR="${HOME}/.local/share/paperfetcher"
 readonly CLAUDE_DOCS="https://code.claude.com/docs"
 
@@ -108,11 +112,11 @@ fi
 ok "claude $(claude --version 2>/dev/null | head -1)"
 
 # ---------- clone ----------
-step "Cloning PaperFetcher to ${INSTALL_DIR}"
+step "Cloning PaperFetcher (${BRANCH}) to ${INSTALL_DIR}"
 mkdir -p "$(dirname "${INSTALL_DIR}")"
-git clone --quiet "${REPO_URL}" "${INSTALL_DIR}"
+git clone --quiet --branch "${BRANCH}" "${REPO_URL}" "${INSTALL_DIR}"
 cd "${INSTALL_DIR}"
-ok "cloned at $(git -C "${INSTALL_DIR}" rev-parse --short HEAD)"
+ok "cloned ${BRANCH} at $(git -C "${INSTALL_DIR}" rev-parse --short HEAD)"
 
 # ---------- python deps ----------
 step "Installing Python dependencies (uv sync)"
