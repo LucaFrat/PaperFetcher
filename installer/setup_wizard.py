@@ -254,20 +254,15 @@ def step_interests() -> None:
 
 def step_schedule() -> str:
     section("Schedule")
-    label = gum_choose(
-        header="How often should PaperFetcher run? Weekdays-only is "
-               "recommended since arXiv doesn't post on weekends.",
-        options=["Weekdays only (Mon-Fri)", "Every day"],
-    )
-    daily = label.startswith("Every")
+    print("  PaperFetcher runs Mon-Fri only — arXiv doesn't publish on")
+    print("  Saturdays or Sundays, so weekend runs would no-op.")
     hhmm = ask_time_hhmm(
         prompt="Time (HH:MM)> ",
-        header="When should the cron fire each day? 24-hour format. "
+        header="When should the cron fire each weekday? 24-hour format. "
                "Pick early-morning so the episode is ready for your commute.",
         default="05:30",
     )
-    prefix = "*-*-*" if daily else "Mon..Fri *-*-*"
-    return f"{prefix} {hhmm}:00"
+    return f"Mon..Fri *-*-* {hhmm}:00"
 
 
 def step_rclone() -> tuple[str, str]:
