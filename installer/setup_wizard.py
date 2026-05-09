@@ -190,16 +190,21 @@ def step_edge_voices() -> tuple[str, str]:
 
 
 def step_elevenlabs() -> tuple[str, str, str, str]:
-    api_key = gum_input(
-        prompt="API key> ",
-        header="Paste your ElevenLabs API key. Create one at "
-               "https://elevenlabs.io/app/settings/api-keys "
-               "with text_to_speech + user_read scopes.",
-        placeholder="sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-        password=True,
-    )
+    api_key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
     if not api_key:
-        sys.exit("ElevenLabs API key cannot be empty.")
+        styled_box(
+            "ElevenLabs needs an API key, but ELEVENLABS_API_KEY isn't set\n"
+            "in your shell. Pasting secrets into prompts feels gross — let's\n"
+            "do it through your shell instead.\n\n"
+            "1. Get a key at https://elevenlabs.io/app/settings/api-keys\n"
+            "   (scopes: text_to_speech + user_read)\n\n"
+            "2. In the SAME terminal you're running this installer in, run:\n"
+            "       export ELEVENLABS_API_KEY=sk_xxxxxxxxxxxxxxxxxxxxxxxx\n\n"
+            "3. Re-run the installer from that same terminal.\n\n"
+            "Tip: add the export line to ~/.bashrc or ~/.zshrc to make it\n"
+            "stick across shell sessions."
+        )
+        sys.exit(1)
     voice_a = gum_input(
         prompt="Voice A id> ",
         header="Browse https://elevenlabs.io/voice-library and copy a voice's "

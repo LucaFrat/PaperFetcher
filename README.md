@@ -56,7 +56,14 @@ You'll need:
 - **A Google account** for Google Drive (the wizard handles the OAuth).
 - **(Optional) An [ElevenLabs](https://elevenlabs.io) Creator subscription**
   if you want premium voices. The free Edge TTS option works fine and you
-  can switch later.
+  can switch later. If you go with ElevenLabs, export your API key in the
+  same terminal *before* running the installer:
+
+  ```bash
+  export ELEVENLABS_API_KEY=sk_xxxxxxxxxxxxxxxxxxxxxxxx
+  ```
+
+  (Add it to `~/.bashrc` or `~/.zshrc` to keep it across shells.)
 
 ## After install
 
