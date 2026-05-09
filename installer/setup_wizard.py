@@ -255,8 +255,7 @@ def step_interests() -> None:
                 "chunking, diffusion policies, tactile sensing. Less "
                 "interested in benchmark-only papers without a real-robot "
                 "component.'\n"
-                "Bad: 'machine learning'.\n"
-                "Submit with Ctrl+D, cancel with Esc."
+                "Bad: 'machine learning'."
             ),
             placeholder="Start typing here...",
         )
