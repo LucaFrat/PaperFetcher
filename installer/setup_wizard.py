@@ -44,8 +44,13 @@ def _gum(*args: str) -> str:
     return out.stdout.rstrip("\n")
 
 
-def gum_input(*, prompt: str, default: str = "", password: bool = False) -> str:
-    args = ["input", "--prompt", prompt, "--width", "60"]
+def gum_input(*, prompt: str, default: str = "", placeholder: str = "",
+              header: str = "", password: bool = False) -> str:
+    args = ["input", "--prompt", prompt, "--width", "70"]
+    if header:
+        args += ["--header", header]
+    if placeholder:
+        args += ["--placeholder", placeholder]
     if default:
         args += ["--value", default]
     if password:
@@ -54,7 +59,8 @@ def gum_input(*, prompt: str, default: str = "", password: bool = False) -> str:
 
 
 def gum_choose(*, header: str, options: list[str]) -> str:
-    args = ["choose", "--header", header, "--height", str(min(len(options) + 2, 12)),
+    args = ["choose", "--header", header,
+            "--height", str(min(len(options) + 2, 12)),
             *options]
     return _gum(*args)
 
@@ -99,9 +105,10 @@ def styled_box(text: str) -> None:
 
 # ---------- prompt helpers ----------
 
-def ask_int(*, prompt: str, default: int, lo: int, hi: int) -> int:
+def ask_int(*, prompt: str, header: str, default: int, lo: int, hi: int) -> int:
     while True:
-        raw = gum_input(prompt=prompt, default=str(default))
+        raw = gum_input(prompt=prompt, default=str(default), header=header,
+                        placeholder=str(default))
         try:
             n = int(raw)
         except ValueError:
@@ -113,10 +120,11 @@ def ask_int(*, prompt: str, default: int, lo: int, hi: int) -> int:
         return n
 
 
-def ask_time_hhmm(*, prompt: str, default: str) -> str:
+def ask_time_hhmm(*, prompt: str, header: str, default: str) -> str:
     pattern = re.compile(r"^([01]?\d|2[0-3]):[0-5]\d$")
     while True:
-        raw = gum_input(prompt=prompt, default=default)
+        raw = gum_input(prompt=prompt, default=default, header=header,
+                        placeholder="HH:MM (24h)")
         if pattern.fullmatch(raw):
             return raw
         print("  Need HH:MM in 24-hour format, e.g. 05:30 or 18:00.")
@@ -126,13 +134,18 @@ def ask_time_hhmm(*, prompt: str, default: str) -> str:
 
 def step_episode() -> int:
     section("Episode")
-    return ask_int(prompt="Length (min)> ", default=10, lo=5, hi=15)
+    return ask_int(
+        prompt="Length (min)> ",
+        header="How long should each episode be? Range 5-15. "
+               "Longer = more TTS credits, more Claude time.",
+        default=10, lo=5, hi=15,
+    )
 
 
 def step_tts_backend() -> str:
     section("Text-to-speech")
     label = gum_choose(
-        header="Pick TTS engine:",
+        header="Which TTS engine? (Use ↑/↓ to move, Enter to pick.)",
         options=[
             "Edge TTS    — free, cloud, no API key, decent quality",
             "ElevenLabs  — paid (~$22/mo Creator), much better quality",
@@ -143,22 +156,46 @@ def step_tts_backend() -> str:
 
 def step_edge_voices() -> tuple[str, str]:
     labels = [label for (label, _) in EDGE_VOICES]
-    a_label = gum_choose(header="Voice A (curious co-host):", options=labels)
-    b_label = gum_choose(header="Voice B (expert co-host):", options=labels)
+    a_label = gum_choose(
+        header="Voice A — the curious co-host who drives the conversation:",
+        options=labels,
+    )
+    b_label = gum_choose(
+        header="Voice B — the expert co-host who explains the paper:",
+        options=labels,
+    )
     a = next(v for (l, v) in EDGE_VOICES if l == a_label)
     b = next(v for (l, v) in EDGE_VOICES if l == b_label)
     return a, b
 
 
 def step_elevenlabs() -> tuple[str, str, str, str]:
-    print("  Need a Creator subscription and an API key with text_to_speech + user_read.")
-    print("  Voices: https://elevenlabs.io/voice-library  ·  Keys: https://elevenlabs.io/app/settings/api-keys")
-    api_key = gum_input(prompt="API key> ", password=True)
+    api_key = gum_input(
+        prompt="API key> ",
+        header="Paste your ElevenLabs API key. Create one at "
+               "https://elevenlabs.io/app/settings/api-keys "
+               "with text_to_speech + user_read scopes.",
+        placeholder="sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        password=True,
+    )
     if not api_key:
         sys.exit("ElevenLabs API key cannot be empty.")
-    voice_a = gum_input(prompt="Voice A id> ")
-    voice_b = gum_input(prompt="Voice B id> ")
-    label = gum_choose(header="Model:", options=[m[0] for m in ELEVENLABS_MODELS])
+    voice_a = gum_input(
+        prompt="Voice A id> ",
+        header="Browse https://elevenlabs.io/voice-library and copy a voice's "
+               "ID (the curious co-host).",
+        placeholder="20-character alphanumeric ID",
+    )
+    voice_b = gum_input(
+        prompt="Voice B id> ",
+        header="A second voice ID for the expert co-host.",
+        placeholder="20-character alphanumeric ID",
+    )
+    label = gum_choose(
+        header="Pick the synthesis model. Turbo is half-cost and very close in "
+               "quality for technical English; Multilingual is the gold standard.",
+        options=[m[0] for m in ELEVENLABS_MODELS],
+    )
     model = next(m for (l, m) in ELEVENLABS_MODELS if l == label)
     return api_key, voice_a, voice_b, model
 
@@ -167,6 +204,9 @@ def step_paper_sourcing() -> str:
     section("Paper sourcing")
     return gum_input(
         prompt="arXiv categories> ",
+        header="Comma-separated arXiv category codes to monitor. See the full "
+               "taxonomy at https://arxiv.org/category_taxonomy.",
+        placeholder="e.g. cs.RO, cs.LG, cs.AI, cs.CV",
         default="cs.RO, cs.LG, cs.AI, cs.CV",
     )
 
@@ -175,6 +215,10 @@ def step_interests(categories: str) -> None:
     template = (TEMPLATES / "interests.md.tmpl").read_text()
     placeholder = gum_input(
         prompt="One-line interests> ",
+        header="What you research / care about. Used by the embedding model "
+               "and Claude to pick papers. You'll get to flesh this out in an "
+               "editor next.",
+        placeholder="e.g. robot learning, sim-to-real, dexterous manipulation",
         default="robot learning",
     )
     body = template.format(categories=categories, placeholder_topic=placeholder)
@@ -189,29 +233,51 @@ def step_interests(categories: str) -> None:
 def step_schedule() -> str:
     section("Schedule")
     label = gum_choose(
-        header="Run frequency:",
+        header="How often should PaperFetcher run? Weekdays-only is "
+               "recommended since arXiv doesn't post on weekends.",
         options=["Weekdays only (Mon-Fri)", "Every day"],
     )
     daily = label.startswith("Every")
-    hhmm = ask_time_hhmm(prompt="Time (HH:MM)> ", default="05:30")
+    hhmm = ask_time_hhmm(
+        prompt="Time (HH:MM)> ",
+        header="When should the cron fire each day? 24-hour format. "
+               "Pick early-morning so the episode is ready for your commute.",
+        default="05:30",
+    )
     prefix = "*-*-*" if daily else "Mon..Fri *-*-*"
     return f"{prefix} {hhmm}:00"
 
 
 def step_rclone() -> tuple[str, str]:
     section("Google Drive (rclone)")
-    remote = gum_input(prompt="rclone remote name> ", default="gdrive")
+    remote = gum_input(
+        prompt="rclone remote name> ",
+        header="The name you'll give your Google Drive remote in rclone. "
+               "Used as 'remote:folder' in rclone copy commands.",
+        placeholder="any short name, e.g. gdrive",
+        default="gdrive",
+    )
     have = subprocess.run(
         ["rclone", "listremotes"], capture_output=True, text=True,
     ).stdout.splitlines()
     have_clean = [r.rstrip(":") for r in have]
     if remote not in have_clean:
-        print(f"  rclone remote '{remote}' not configured yet.")
-        print("  rclone config will open. Pick: name=" + remote +
-              ", type=drive, scope=drive, blank id/secret, auto-config=yes.")
+        print(f"  rclone remote '{remote}' is not configured yet.")
+        print(f"  We'll launch `rclone config` next. In the wizard, pick:")
+        print(f"     name = {remote}")
+        print(f"     storage = drive (Google Drive)")
+        print(f"     leave id / secret blank")
+        print(f"     scope = drive")
+        print(f"     auto-config = yes  (opens your browser)")
         if gum_confirm("Run rclone config now?"):
             subprocess.run(["rclone", "config"], check=False)
-    folder = gum_input(prompt="Drive folder> ", default="PaperFetcher")
+    folder = gum_input(
+        prompt="Drive folder> ",
+        header="Subfolder inside your Drive root where dated episode folders "
+               "will be created (e.g. PaperFetcher/2026-05-12/).",
+        placeholder="e.g. PaperFetcher",
+        default="PaperFetcher",
+    )
     return remote, folder
 
 
