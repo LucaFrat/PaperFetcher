@@ -54,7 +54,15 @@ ok "Linux + apt detected, running as ${USER}"
 
 # ---------- system packages ----------
 step "Installing system packages (sudo apt)"
-sudo apt-get update -qq
+# `apt-get update` is non-fatal here: a broken third-party PPA (Docker,
+# lazygit, Spotify, ...) on the user's machine is a pre-existing problem,
+# not a PaperFetcher problem. We only need our packages to install cleanly,
+# which `apt-get install` will report on if anything's actually broken.
+if ! sudo apt-get update -qq; then
+    warn "apt-get update reported issues with some of your apt sources."
+    warn "These are usually unrelated repos (Docker, expired PPAs, missing GPG keys)."
+    warn "Continuing — if our packages won't install, the next step will say so."
+fi
 sudo apt-get install -y -qq \
     ffmpeg rclone jq libnotify-bin git curl ca-certificates
 ok "ffmpeg, rclone, jq, libnotify-bin, git, curl"
@@ -67,7 +75,7 @@ if ! command -v gum >/dev/null 2>&1; then
         | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
     echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" \
         | sudo tee /etc/apt/sources.list.d/charm.list >/dev/null
-    sudo apt-get update -qq
+    sudo apt-get update -qq || warn "apt-get update reported issues — continuing"
     sudo apt-get install -y -qq gum
 fi
 ok "gum $(gum --version 2>/dev/null | head -1 || echo 'installed')"
