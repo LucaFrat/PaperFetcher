@@ -29,11 +29,18 @@ ELEVENLABS_MODELS = [
 # ---------- gum wrappers ----------
 
 def _gum(*args: str) -> str:
-    """Run a gum subcommand, return stripped stdout. Esc/Ctrl-C -> exit."""
+    """Run a gum subcommand, return stripped stdout. Esc/Ctrl-C -> exit.
+
+    Capture stdout (= the user's selection / typed value) but leave stderr
+    inherited. gum draws its interactive TUI on stderr; if we capture it,
+    gum sees a non-TTY and falls back to non-interactive mode (returns
+    empty instantly) — i.e. the prompt never visibly appears.
+    """
     try:
         out = subprocess.run(
             ["gum", *args],
-            check=True, capture_output=True, text=True, stdin=sys.stdin,
+            check=True, text=True,
+            stdin=sys.stdin, stdout=subprocess.PIPE, stderr=None,
         )
     except FileNotFoundError:
         sys.exit("gum is not installed (install.sh should have handled this).")
