@@ -57,12 +57,14 @@ def main(argv: list[str] | None = None) -> int:
 
     # Fail fast on missing API key — otherwise we'd waste 5+ min of fetch
     # and Claude work before audio synth discovers the missing key.
-    if not args.no_audio and not args.dry_run:
-        if not os.environ.get("ELEVENLABS_API_KEY"):
-            logger.error(
-                "ELEVENLABS_API_KEY not set. Either set it for systemd via "
-                "~/.config/environment.d/, or pass --no-audio for a dry pass.")
-            return 4
+    if (not args.no_audio and not args.dry_run
+            and settings.audio.backend == "elevenlabs"
+            and not os.environ.get("ELEVENLABS_API_KEY")):
+        logger.error(
+            "ELEVENLABS_API_KEY not set but [audio] backend = elevenlabs. "
+            "Set it for systemd via ~/.config/environment.d/, or switch the "
+            "backend to 'edge_tts' in config/settings.toml.")
+        return 4
 
     categories, interests_body = parse_interests(settings.paths.interests)
     if not categories:
@@ -105,7 +107,10 @@ def main(argv: list[str] | None = None) -> int:
     paper_text = digest_mod.extract_text(pdf_path)
     digest_mod.write_digest(paper, paper_text, day_dir)
 
-    script_path = script_mod.generate(paper, paper_text, day_dir)
+    script_path = script_mod.generate(
+        paper, paper_text, day_dir,
+        target_minutes=settings.script.target_minutes,
+    )
 
     if not args.no_audio:
         audio_mod.synthesize(script_path, day_dir, audio_cfg=settings.audio)

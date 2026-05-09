@@ -46,90 +46,42 @@ The pipeline is one Python entry point — `paperfatcher.pipeline:main` — that
 runs each stage sequentially and short-circuits on `--dry-run`, `--no-audio`,
 or `--no-deliver` flags.
 
-## Requirements
-
-- Ubuntu 24.04 (or any Linux with systemd user units)
-- Python 3.11 or 3.12
-- `ffmpeg` (apt, **not** conda — see [Troubleshooting](#troubleshooting))
-- `rclone` (apt) with a configured Google Drive remote
-- [`uv`](https://github.com/astral-sh/uv) for Python dependency management
-- [Claude Code CLI](https://code.claude.com/docs) on a Claude Max subscription
-- [ElevenLabs](https://elevenlabs.io) Creator subscription ($22/mo) and an API key with `text_to_speech_write` and `user_read` permissions
-
-## Setup
-
-### 1. System packages
+## Quick install (Ubuntu / Debian)
 
 ```bash
-sudo apt update
-sudo apt install -y ffmpeg rclone jq
+wget -qO- https://raw.githubusercontent.com/LucaFrat/PaperFetcher/main/install.sh | bash
 ```
 
-### 2. uv
+The installer:
 
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-source $HOME/.local/bin/env
-```
+1. Installs system packages (`ffmpeg`, `rclone`, `jq`, `gum`) via apt
+2. Installs `uv` (Python package manager)
+3. Verifies the Claude Code CLI is present
+4. Clones the repo to `~/.local/share/paperfetcher`
+5. Runs `uv sync` to set up the Python env
+6. Launches an interactive wizard that asks for:
+   - Episode length (5-15 min)
+   - TTS engine — **Edge TTS** (free, no setup) or **ElevenLabs** (paid, higher quality)
+   - Voices for the two co-hosts
+   - arXiv categories + your research interests (opens your `$EDITOR`)
+   - Schedule (weekdays-only or daily, time of day)
+   - rclone Google Drive remote (launches `rclone config` if not set up yet)
+7. Generates `config/settings.toml`, the systemd unit files, and (if ElevenLabs) `~/.config/environment.d/paperfetcher.conf` for the API key
+8. Enables the systemd timer, offers `loginctl enable-linger`, and runs an optional dry-run to verify
 
-### 3. Claude Code CLI
+End-to-end takes about **10 minutes**, mostly spent on rclone's browser auth.
 
-Install per the [official docs](https://code.claude.com/docs), then `claude login` and pick the Max-plan account. Verify:
+### Prerequisites the installer does NOT handle
 
-```bash
-claude -p "say hi" --output-format json | jq -r '.[] | select(.type=="result") | .total_cost_usd'
-```
+Set these up before running the installer:
 
-If `apiKeySource` in the init event is `"none"`, you're on Max-plan billing (no per-call charges).
+- **[Claude Code CLI](https://code.claude.com/docs)** — install + `claude login` (pick a Max-plan account)
+- **A Google account** for rclone (browser auth happens inside the wizard)
+- *(Only if you choose ElevenLabs)* an [ElevenLabs](https://elevenlabs.io) Creator subscription and an API key with `text_to_speech_write` + `user_read` permissions
 
-### 4. rclone Google Drive remote
+### Manual install
 
-```bash
-rclone config           # name=lucaPapers (or whatever), type=drive, scope=drive, browser-auth
-rclone lsd <remote>:    # smoke test
-rclone mkdir <remote>:PaperFatcher
-```
-
-### 5. ElevenLabs API key
-
-In the [ElevenLabs dashboard](https://elevenlabs.io):
-
-1. Subscribe to **Creator** ($22/mo, 100k+ credits/mo)
-2. Create an API key with permissions: **Text-to-Speech: Convert** and **User: Read**
-3. Set the per-key credit limit to **Unlimited** (or at least 10k)
-
-Persist the key for both interactive shells and the systemd cron:
-
-```bash
-umask 077
-printf 'ELEVENLABS_API_KEY=%s\n' "$ELEVENLABS_API_KEY" \
-  > ~/.config/environment.d/paperfatcher.conf
-systemctl --user import-environment ELEVENLABS_API_KEY
-```
-
-`environment.d` files are mode 600 (only your user reads them) and auto-loaded
-by user-level systemd at next login.
-
-### 6. Project install
-
-```bash
-cd ~/dev/PaperFatcher
-uv sync
-```
-
-### 7. systemd timer
-
-```bash
-mkdir -p ~/.config/systemd/user
-cp systemd/paperfatcher.{service,timer} ~/.config/systemd/user/
-systemctl --user daemon-reload
-systemctl --user enable --now paperfatcher.timer
-sudo loginctl enable-linger "$USER"   # so it fires while you're logged out
-systemctl --user list-timers paperfatcher.timer
-```
-
-The default schedule is `Mon..Fri *-*-* 05:30:00`. Edit
-`paperfatcher.timer` to change.
+If you'd rather skip the wizard (e.g. you're contributing to the project, running on a non-apt distro, or you don't want `gum` installed), see the [Manual install](#manual-install) appendix at the bottom.
 
 ## Configuration
 
@@ -375,6 +327,93 @@ PaperFatcher/
 - **Why pin `/usr/bin/ffmpeg`?** Conda's bundled `ffmpeg` shadowed the system
   binary in cron's PATH and crashed on a missing libx264 — a classic "works
   in interactive, dies in cron" trap.
+
+## Manual install
+
+The wizard is a convenience layer over these steps. If you don't want `gum`
+or you're on a non-apt distro, do them by hand.
+
+### 1. System packages
+
+```bash
+sudo apt update
+sudo apt install -y ffmpeg rclone jq libnotify-bin git curl
+```
+
+### 2. uv
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source $HOME/.local/bin/env
+```
+
+### 3. Claude Code CLI
+
+Install per the [official docs](https://code.claude.com/docs), then `claude
+login` and pick a Max-plan account. Verify with:
+
+```bash
+claude -p "say hi" --output-format json | jq -r '.[] | select(.type=="result") | .total_cost_usd'
+```
+
+If `apiKeySource` in the init event is `"none"`, you're on Max-plan billing
+(no per-call charges).
+
+### 4. rclone Google Drive remote
+
+```bash
+rclone config           # interactive: name=gdrive, type=drive, scope=drive, browser-auth
+rclone lsd <remote>:    # smoke test
+rclone mkdir <remote>:PaperFetcher
+```
+
+### 5. ElevenLabs API key (only if you want ElevenLabs)
+
+In the [ElevenLabs dashboard](https://elevenlabs.io):
+
+1. Subscribe to **Creator** ($22/mo, 100k+ credits/mo).
+2. Create an API key with permissions: **Text-to-Speech: Convert** and **User: Read**.
+3. Set the per-key credit limit to **Unlimited** (or at least 10k).
+
+Persist the key for both interactive shells and the systemd cron:
+
+```bash
+umask 077
+printf 'ELEVENLABS_API_KEY=%s\n' "$ELEVENLABS_API_KEY" \
+  > ~/.config/environment.d/paperfetcher.conf
+systemctl --user import-environment ELEVENLABS_API_KEY
+```
+
+If you'd rather use the free Edge TTS backend, skip this step entirely and
+set `[audio] backend = "edge_tts"` in `config/settings.toml`.
+
+### 6. Clone + install
+
+```bash
+git clone https://github.com/LucaFrat/PaperFetcher.git ~/.local/share/paperfetcher
+cd ~/.local/share/paperfetcher
+uv sync
+```
+
+### 7. Configuration
+
+Edit `config/settings.toml` and `config/interests.md` with your choices. Both
+files are documented in [Configuration](#configuration) above.
+
+### 8. systemd timer
+
+```bash
+mkdir -p ~/.config/systemd/user
+# Edit the unit files first to match your install path:
+sed "s|%REPO_PATH%|$HOME/.local/share/paperfetcher|g" \
+    installer/templates/paperfetcher.service.tmpl > ~/.config/systemd/user/paperfetcher.service
+sed "s|%ONCALENDAR%|Mon..Fri *-*-* 05:30:00|" \
+    installer/templates/paperfetcher.timer.tmpl > ~/.config/systemd/user/paperfetcher.timer
+systemctl --user daemon-reload
+systemctl --user enable --now paperfetcher.timer
+sudo loginctl enable-linger "$USER"   # so it fires while you're logged out
+systemctl --user list-timers paperfetcher.timer
+```
 
 ## License
 

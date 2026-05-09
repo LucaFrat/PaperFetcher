@@ -1,0 +1,11 @@
+[Unit]
+Description=PaperFetcher daily run
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory={repo_path}
+ExecStart=/usr/bin/env bash {repo_path}/run.sh
+StandardOutput=append:{repo_path}/logs/systemd.out.log
+StandardError=append:{repo_path}/logs/systemd.err.log

@@ -1,6 +1,7 @@
-"""ElevenLabs TTS (4-thread parallel) + ffmpeg concat into a single mp3."""
+"""TTS synthesis (Edge TTS or ElevenLabs) + ffmpeg concat into a single mp3."""
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -10,9 +11,6 @@ import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-
-from elevenlabs.client import ElevenLabs
-from elevenlabs.core.api_error import ApiError
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +28,32 @@ def _system_ffmpeg() -> str:
     return found
 
 
-def _synth_one(client: ElevenLabs, text: str, voice_id: str, model: str,
-               output_format: str, out_path: Path,
-               prev_text: str | None, next_text: str | None) -> None:
+# ---------- Edge TTS (cloud, free, no API key) ----------
+
+async def _synth_one_edge(text: str, voice: str, out: Path) -> None:
+    import edge_tts
+    await edge_tts.Communicate(text=text, voice=voice).save(str(out))
+
+
+async def _synth_all_edge(lines: list[dict], voice_a: str, voice_b: str,
+                          work: Path) -> list[Path]:
+    work.mkdir(parents=True, exist_ok=True)
+    parts: list[Path] = []
+    for i, ln in enumerate(lines):
+        voice = voice_a if ln["speaker"] == "A" else voice_b
+        out = work / f"{i:04d}_{ln['speaker']}.mp3"
+        await _synth_one_edge(ln["text"], voice, out)
+        parts.append(out)
+    logger.info("edge_tts synth: %d lines done", len(parts))
+    return parts
+
+
+# ---------- ElevenLabs (paid, higher quality) ----------
+
+def _synth_one_eleven(client, text: str, voice_id: str, model: str,
+                      output_format: str, out_path: Path,
+                      prev_text: str | None, next_text: str | None) -> None:
+    from elevenlabs.core.api_error import ApiError
     delay = 1.0
     for attempt in range(3):
         try:
@@ -57,8 +78,17 @@ def _synth_one(client: ElevenLabs, text: str, voice_id: str, model: str,
             delay *= 2
 
 
-def _synth_all(client: ElevenLabs, lines: list[dict], voice_a: str, voice_b: str,
-               model: str, output_format: str, work: Path) -> list[Path]:
+def _synth_all_eleven(lines: list[dict], voice_a: str, voice_b: str,
+                      model: str, output_format: str, work: Path) -> list[Path]:
+    api_key = os.environ.get("ELEVENLABS_API_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "ELEVENLABS_API_KEY not set — export it in your shell or "
+            "~/.config/environment.d/ for systemd"
+        )
+    from elevenlabs.client import ElevenLabs
+    client = ElevenLabs(api_key=api_key)
+
     work.mkdir(parents=True, exist_ok=True)
     parts: list[Path | None] = [None] * len(lines)
     total_chars = sum(len(ln["text"]) for ln in lines)
@@ -71,8 +101,8 @@ def _synth_all(client: ElevenLabs, lines: list[dict], voice_a: str, voice_b: str
         out = work / f"{i:04d}_{ln['speaker']}.mp3"
         prev_text = lines[i - 1]["text"] if i > 0 else None
         next_text = lines[i + 1]["text"] if i + 1 < len(lines) else None
-        _synth_one(client, ln["text"], voice, model, output_format, out,
-                   prev_text, next_text)
+        _synth_one_eleven(client, ln["text"], voice, model, output_format, out,
+                          prev_text, next_text)
         return i, out
 
     with ThreadPoolExecutor(max_workers=4) as ex:
@@ -83,6 +113,8 @@ def _synth_all(client: ElevenLabs, lines: list[dict], voice_a: str, voice_b: str
 
     return [p for p in parts if p is not None]
 
+
+# ---------- ffmpeg concat + dispatch ----------
 
 def _ffmpeg_concat(parts: list[Path], out_path: Path) -> None:
     ffmpeg = _system_ffmpeg()
@@ -107,25 +139,25 @@ def _ffmpeg_concat(parts: list[Path], out_path: Path) -> None:
 
 def synthesize(script_path: Path, dest_dir: Path, *, audio_cfg) -> Path:
     """audio_cfg: a paperfatcher.config.AudioCfg instance."""
-    api_key = os.environ.get("ELEVENLABS_API_KEY")
-    if not api_key:
-        raise RuntimeError(
-            "ELEVENLABS_API_KEY not set — export it in your shell or "
-            "~/.config/environment.d/ for systemd"
-        )
-    client = ElevenLabs(api_key=api_key)
-
     dest_dir.mkdir(parents=True, exist_ok=True)
     data = json.loads(script_path.read_text(encoding="utf-8"))
     lines = data["dialogue"]
 
     out_mp3 = dest_dir / "digest.mp3"
     with tempfile.TemporaryDirectory(prefix="pf-tts-", dir=str(dest_dir)) as td:
-        parts = _synth_all(
-            client, lines, audio_cfg.voice_a, audio_cfg.voice_b,
-            audio_cfg.elevenlabs_model, audio_cfg.elevenlabs_output_format,
-            Path(td),
-        )
+        work = Path(td)
+        if audio_cfg.backend == "elevenlabs":
+            parts = _synth_all_eleven(
+                lines, audio_cfg.voice_a, audio_cfg.voice_b,
+                audio_cfg.elevenlabs_model, audio_cfg.elevenlabs_output_format,
+                work,
+            )
+        elif audio_cfg.backend == "edge_tts":
+            parts = asyncio.run(_synth_all_edge(
+                lines, audio_cfg.voice_a, audio_cfg.voice_b, work,
+            ))
+        else:
+            raise ValueError(f"unknown audio backend: {audio_cfg.backend!r}")
         _ffmpeg_concat(parts, out_mp3)
 
     logger.info("audio done: %s (%d bytes)", out_mp3, out_mp3.stat().st_size)

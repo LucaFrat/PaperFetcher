@@ -19,11 +19,17 @@ class RankCfg:
 
 
 @dataclass(frozen=True)
+class ScriptCfg:
+    target_minutes: int
+
+
+@dataclass(frozen=True)
 class AudioCfg:
+    backend: str
     voice_a: str
     voice_b: str
-    elevenlabs_model: str
-    elevenlabs_output_format: str
+    elevenlabs_model: str = "eleven_turbo_v2_5"
+    elevenlabs_output_format: str = "mp3_44100_128"
 
 
 @dataclass(frozen=True)
@@ -44,6 +50,7 @@ class PathsCfg:
 class Settings:
     fetch: FetchCfg
     rank: RankCfg
+    script: ScriptCfg
     audio: AudioCfg
     deliver: DeliverCfg
     paths: PathsCfg
@@ -61,6 +68,7 @@ def load_settings(repo_root: Path | None = None) -> Settings:
     return Settings(
         fetch=FetchCfg(**raw["fetch"]),
         rank=RankCfg(**raw["rank"]),
+        script=ScriptCfg(**raw.get("script", {"target_minutes": 10})),
         audio=AudioCfg(**raw["audio"]),
         deliver=DeliverCfg(**raw["deliver"]),
         paths=PathsCfg(
