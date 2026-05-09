@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import os
 import re
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -69,6 +68,20 @@ def gum_choose(*, header: str, options: list[str]) -> str:
     args = ["choose", "--header", header,
             "--height", str(min(len(options) + 2, 12)),
             *options]
+    return _gum(*args)
+
+
+def gum_write(*, header: str, placeholder: str = "",
+              width: int = 80, height: int = 14) -> str:
+    """Multi-line text editor. Submit with Ctrl+D, cancel with Esc."""
+    args = ["write",
+            "--header", header,
+            "--width", str(width),
+            "--height", str(height),
+            "--show-cursor-line",
+            "--char-limit", "4000"]
+    if placeholder:
+        args += ["--placeholder", placeholder]
     return _gum(*args)
 
 
@@ -209,17 +222,34 @@ def step_elevenlabs() -> tuple[str, str, str, str]:
 
 def step_interests() -> None:
     section("Research interests")
-    template = (TEMPLATES / "interests.md.tmpl").read_text()
+    while True:
+        prose = gum_write(
+            header=(
+                "Describe your research interests in 3-6 sentences. "
+                "Be SPECIFIC — the embedding model and Claude both read this "
+                "to pick the single best paper of the day from cs.AI / cs.LG "
+                "/ cs.RO / cs.CV / cs.CL.\n"
+                "Good: 'I work on imitation learning for dexterous "
+                "manipulation. I care about sim-to-real transfer, action "
+                "chunking, diffusion policies, tactile sensing. Less "
+                "interested in benchmark-only papers without a real-robot "
+                "component.'\n"
+                "Bad: 'machine learning'.\n"
+                "Submit with Ctrl+D, cancel with Esc."
+            ),
+            placeholder="Start typing here...",
+        )
+        if len(prose.strip()) < 40:
+            print("  Too short — please write at least a few sentences. "
+                  "The ranker can't filter on '{}'.".format(prose.strip()[:30]))
+            continue
+        break
+
+    body = "# Research interests\n\n" + prose.strip() + "\n"
     target = REPO_ROOT / "config" / "interests.md"
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(template, encoding="utf-8")
-    editor = os.environ.get("EDITOR") or shutil.which("nano") or "vi"
-    print("  PaperFetcher monitors AI / ML / robotics / CV / NLP on arXiv")
-    print("  (cs.AI, cs.LG, cs.RO, cs.CV, cs.CL). Each day, the ranker + Claude")
-    print("  pick the single most relevant paper based on what you write below.")
-    print(f"  Take a few minutes to describe your research interests in prose.")
-    if gum_confirm(f"Open {target.name} in {editor} now?", default_yes=True):
-        subprocess.run([editor, str(target)], check=False)
+    target.write_text(body, encoding="utf-8")
+    print(f"  Saved to {target}. Edit later if you want to refine.")
 
 
 def step_schedule() -> str:
