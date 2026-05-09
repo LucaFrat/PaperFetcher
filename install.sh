@@ -7,8 +7,7 @@ set -e
 # ---------- constants ----------
 readonly REPO_URL="https://github.com/LucaFrat/PaperFetcher.git"
 # Branch to clone. Override with PAPERFETCHER_BRANCH=<branch> for testing.
-# Will switch to "main" once feat/easy-install is merged.
-readonly BRANCH="${PAPERFETCHER_BRANCH:-feat/easy-install}"
+readonly BRANCH="${PAPERFETCHER_BRANCH:-main}"
 readonly INSTALL_DIR="${HOME}/.local/share/paperfetcher"
 readonly CLAUDE_DOCS="https://code.claude.com/docs"
 readonly GUM_VERSION="0.14.3"
