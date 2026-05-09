@@ -1,0 +1,23 @@
+[fetch]
+window_hours          = 72
+request_delay_seconds = 5
+
+[rank]
+shortlist_size  = 30
+embedding_model = "sentence-transformers/all-MiniLM-L6-v2"
+
+[audio]
+voice_a = "J2FGlQG8Gd7x8uEDt2H8"
+voice_b = "Fahco4VZzobUeiPqni1S"
+elevenlabs_model         = "eleven_turbo_v2_5"
+elevenlabs_output_format = "mp3_44100_128"
+
+[deliver]
+rclone_remote  = "lucaPapers:PaperFatcher"
+local_fallback = "~/PaperFatcher-output"
+
+[paths]
+output_dir = "output"
+state_file = "state/picked.json"
+logs_dir   = "logs"
+interests  = "config/interests.md"

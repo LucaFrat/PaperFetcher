@@ -1,0 +1,10 @@
+[Unit]
+Description=PaperFatcher daily timer
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 05:30:00
+Persistent=true
+Unit=paperfatcher.service
+
+[Install]
+WantedBy=timers.target
