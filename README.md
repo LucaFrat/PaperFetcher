@@ -83,6 +83,16 @@ Set these up before running the installer:
 
 If you'd rather skip the wizard (e.g. you're contributing to the project, running on a non-apt distro, or you don't want `gum` installed), see the [Manual install](#manual-install) appendix at the bottom.
 
+### Uninstall
+
+Removes the install directory, systemd units, and the API-key env file. Does not touch apt packages, your rclone config, or your Google Drive content.
+
+```bash
+wget -qO- https://raw.githubusercontent.com/LucaFrat/PaperFetcher/main/uninstall.sh | bash
+```
+
+Or, if you've already cloned: `bash ~/.local/share/paperfetcher/uninstall.sh`. Pass `--yes` to skip the confirmation prompt.
+
 ## Configuration
 
 ### `config/interests.md`
