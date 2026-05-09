@@ -10,6 +10,22 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 TEMPLATES = Path(__file__).resolve().parent / "templates"
 
+# Brighten gum's default header / placeholder text. gum ships with foreground
+# 240 (dark grey) which is unreadable on most dark terminal themes. 252 is a
+# near-white grey for headers, 245 keeps placeholders distinguishable from
+# real input while still being visible. setdefault so users can override.
+_HEADER_FG = "252"
+_PLACEHOLDER_FG = "245"
+for _var, _val in {
+    "GUM_INPUT_HEADER_FOREGROUND":      _HEADER_FG,
+    "GUM_INPUT_PLACEHOLDER_FOREGROUND": _PLACEHOLDER_FG,
+    "GUM_CHOOSE_HEADER_FOREGROUND":     _HEADER_FG,
+    "GUM_WRITE_HEADER_FOREGROUND":      _HEADER_FG,
+    "GUM_WRITE_PLACEHOLDER_FOREGROUND": _PLACEHOLDER_FG,
+    "GUM_CONFIRM_PROMPT_FOREGROUND":    _HEADER_FG,
+}.items():
+    os.environ.setdefault(_var, _val)
+
 EDGE_VOICES = [
     ("Aria   (US, female, warm newsreader)",  "en-US-AriaNeural"),
     ("Guy    (US, male, clear)",              "en-US-GuyNeural"),
