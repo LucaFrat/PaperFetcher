@@ -109,5 +109,9 @@ cd "${INSTALL_DIR}"
 spin "Installing Python dependencies..." uv sync --quiet
 
 # ---------- hand off to wizard ----------
+# Reattach stdin to the controlling terminal. When this script runs via
+# `wget … | bash`, our stdin is the pipe (carrying the script itself), and
+# child processes inherit that — so gum input/choose see EOF and return empty.
+# /dev/tty is the user's actual terminal regardless of how we were invoked.
 echo
-exec uv run python -m installer.setup_wizard
+exec uv run python -m installer.setup_wizard </dev/tty
