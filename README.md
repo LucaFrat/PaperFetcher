@@ -1,3 +1,5 @@
+![Paper Fetcher](assets/paperFetcher_IMG.png)
+
 # PaperFatcher
 
 > Every weekday morning at 5:30, an arXiv paper turns into a 10-minute podcast on your phone.
