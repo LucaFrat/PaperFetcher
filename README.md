@@ -23,52 +23,58 @@ In a folder named like `2026-05-12/`, locally and synced to your Drive:
 | **`outline.md`** | A structured "cheat sheet" of the paper's key ideas |
 | **`paper.pdf`** | The original arXiv PDF, in case you want to dig deeper |
 
-## Install
-
-Ubuntu or Debian — one command:
-
-```bash
-wget -qO- https://raw.githubusercontent.com/LucaFrat/PaperFetcher/main/install.sh | bash
-```
-
-The installer takes about 10 minutes — most of it the Google Drive browser
-auth — and walks you through a friendly setup wizard:
-
-1. **Episode length** — anywhere from 5 to 15 minutes.
-2. **Voices** — pick free Edge TTS voices, or paste in your two ElevenLabs
-   voice IDs for premium quality.
-3. **Schedule** — which days (weekdays only or every day) and what time the pipeline should run.
-4. **Google Drive** — the wizard launches `rclone config` if you haven't set
-   up a remote yet.
-
-Then, as the final step, the installer opens an **interactive chat with
-Claude** to define your research interests. Claude asks focused questions,
-shows you drafts as it goes, and writes the result to
-`config/interests.md` once you confirm. This profile is what decides which
-paper gets picked for you every day — the chat gets you to a much sharper
-description than free-form typing usually does.
-
-When you're happy with the draft, ask Claude to save it and type `/exit` to
-return to the installer. The pipeline is then armed and will fire
-automatically on your chosen schedule.
-
-### Before you install
+## Before you install
 
 You'll need:
 
-- **[Claude Code CLI](https://code.claude.com/docs)** — install it and run
-  `claude login` with a Max-plan account.
-- **A Google account** for Google Drive (the wizard handles the OAuth).
+- **A machine running Ubuntu or Debian.** Any modern architecture works
+  (`x86_64`, `arm64`, `armv7`) — Raspberry Pi 4 / 5 and ARM cloud VMs
+  (Oracle Cloud Ampere, AWS Graviton, etc.) are fine.
+- **`sudo` access** on first install — for the apt packages, the systemd
+  timer, and the optional `loginctl enable-linger` step.
+- **[Claude Code CLI](https://code.claude.com/docs)**, installed *and*
+  authenticated. After installing, run `claude login` and sign in with a
+  **Max-plan** account (the pipeline calls Claude several times per run;
+  Max keeps it free under your subscription). The installer aborts up front
+  if `claude` isn't on `PATH` or `claude auth status` reports you're not
+  logged in.
+- **A Google account** for Google Drive — the wizard launches
+  `rclone config` for the OAuth.
 - **(Optional) An [ElevenLabs](https://elevenlabs.io) Creator subscription**
-  if you want premium voices. The free Edge TTS option works fine and you
-  can switch later. If you go with ElevenLabs, export your API key in the
-  same terminal *before* running the installer:
+  for premium voices. The free Edge TTS option works fine and you can
+  switch later. If you go with ElevenLabs, export your API key in the same
+  terminal **before** running the installer:
 
   ```bash
   export ELEVENLABS_API_KEY=sk_xxxxxxxxxxxxxxxxxxxxxxxx
   ```
 
   (Add it to `~/.bashrc` or `~/.zshrc` to keep it across shells.)
+
+## Install
+
+One command:
+
+```bash
+wget -qO- https://raw.githubusercontent.com/LucaFrat/PaperFetcher/main/install.sh | bash
+```
+
+The installer takes about 10 minutes — most of that is the Google Drive
+browser auth — and walks you through a setup wizard:
+
+1. **Episode length** — anywhere from 5 to 15 minutes.
+2. **Voices** — free Edge TTS voices, or your two ElevenLabs voice IDs.
+3. **Schedule** — which days (weekdays only or every day) and what time
+   the pipeline should run.
+4. **Google Drive** — launches `rclone config` if you haven't set up a
+   remote yet.
+5. **Research interests** — an interactive **Claude Code chat** opens to
+   help you describe what you actually work on. Claude asks focused
+   questions, shows you drafts in markdown as you go, and writes
+   `config/interests.md` once you confirm. Type `/exit` when done.
+
+When the chat ends, the pipeline is armed and will fire automatically on
+your chosen schedule.
 
 ## After install
 
