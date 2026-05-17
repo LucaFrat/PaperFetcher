@@ -90,6 +90,44 @@ journalctl --user -u paperfatcher.service -f
 systemctl --user list-timers paperfatcher.timer
 ```
 
+## What if my laptop is off at the scheduled time?
+
+The systemd timer is created with `Persistent=true`, which means: if your
+machine was powered off (or asleep, or hibernating) when the timer should
+have fired, the missed run executes the next time you boot. So if you shut
+your laptop at night and turn it on at 9 AM, the missed 05:30 run fires
+within a minute of login — the digest lands roughly 5–7 minutes later.
+
+For most laptop users this is fine: the podcast is "ready when I open my
+laptop in the morning" rather than "ready at exactly 05:30". A few caveats:
+
+- **Don't forget linger.** Without `sudo loginctl enable-linger "$USER"`
+  (which the wizard offers to run), user-level timers pause whenever you
+  log out — including the brief "logged out" window between boot and your
+  desktop session starting. The wizard sets this up; verify with
+  `loginctl show-user "$USER" | grep Linger`.
+- **If your laptop stays off for days**, only the most recent missed run is
+  caught up — older missed runs are skipped (which is what you want; you
+  don't want a 3-paper backlog on Monday).
+
+### Want the podcast ready at the exact scheduled time?
+
+Run PaperFetcher on an always-on machine instead of your laptop. The same
+`install.sh` works headlessly on any Ubuntu / Debian box:
+
+- **A small VPS** — e.g. Hetzner Cloud (~€4/mo), DigitalOcean ($4–6/mo), or
+  Oracle Cloud Free Tier. SSH in, run the installer, complete the wizard
+  over SSH, log out. The timer fires from then on regardless of what your
+  personal devices are doing.
+- **A Raspberry Pi at home** — a Pi 4 running Ubuntu Server is enough. One
+  hardware purchase, no recurring cost, fully local.
+
+One wrinkle for remote installs: `rclone config` for Google Drive normally
+opens a browser, which doesn't work over plain SSH. Easiest workaround —
+run `rclone authorize "drive"` on your laptop (it opens the browser there),
+then paste the token it prints into the `rclone config` prompt on the
+remote box.
+
 ## Cost
 
 | | Cost per month |
