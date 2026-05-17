@@ -67,7 +67,8 @@ def _gum(*args: str) -> str:
 
 
 def gum_input(*, prompt: str, default: str = "", placeholder: str = "",
-              header: str = "", password: bool = False) -> str:
+              header: str = "", password: bool = False,
+              required: bool = False) -> str:
     args = ["input", "--prompt", prompt, "--width", "70"]
     if header:
         args += ["--header", header]
@@ -77,7 +78,11 @@ def gum_input(*, prompt: str, default: str = "", placeholder: str = "",
         args += ["--value", default]
     if password:
         args += ["--password"]
-    return _gum(*args)
+    while True:
+        value = _gum(*args)
+        if not required or value.strip():
+            return value
+        print("  This field can't be empty — please enter a value.")
 
 
 def gum_choose(*, header: str, options: list[str]) -> str:
@@ -226,11 +231,13 @@ def step_elevenlabs() -> tuple[str, str, str, str]:
         header="Browse https://elevenlabs.io/voice-library and copy a voice's "
                "ID (the curious co-host).",
         placeholder="20-character alphanumeric ID",
+        required=True,
     )
     voice_b = gum_input(
         prompt="Voice B id> ",
         header="A second voice ID for the expert co-host.",
         placeholder="20-character alphanumeric ID",
+        required=True,
     )
     label = gum_choose(
         header="Pick the synthesis model. Turbo is half-cost and very close in "
