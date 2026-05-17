@@ -37,15 +37,20 @@ auth — and walks you through a friendly setup wizard:
 1. **Episode length** — anywhere from 5 to 15 minutes.
 2. **Voices** — pick free Edge TTS voices, or paste in your two ElevenLabs
    voice IDs for premium quality.
-3. **Research interests** — write a few sentences about what you actually
-   research. Be specific — this is what decides which paper gets picked for
-   you every day.
-4. **Schedule** — what time each weekday morning the pipeline should run.
-5. **Google Drive** — the wizard launches `rclone config` if you haven't set
+3. **Schedule** — what time each weekday morning the pipeline should run.
+4. **Google Drive** — the wizard launches `rclone config` if you haven't set
    up a remote yet.
 
-When it finishes, the pipeline is armed and will fire automatically every
-weekday.
+Then, as the final step, the installer opens an **interactive chat with
+Claude** to define your research interests. Claude asks focused questions,
+shows you drafts as it goes, and writes the result to
+`config/interests.md` once you confirm. This profile is what decides which
+paper gets picked for you every day — the chat gets you to a much sharper
+description than free-form typing usually does.
+
+When you're happy with the draft, ask Claude to save it and type `/exit` to
+return to the installer. The pipeline is then armed and will fire
+automatically every weekday.
 
 ### Before you install
 
@@ -102,8 +107,16 @@ within the Creator monthly allowance.
 After install, two files in `~/.local/share/paperfetcher/config/` are yours
 to tweak any time:
 
-- **`interests.md`** — your research interests, in plain prose. Edit this
-  whenever your focus shifts.
+- **`interests.md`** — your research interests. Edit by hand for small
+  tweaks, or re-run the Claude chat to rework them from scratch:
+
+  ```bash
+  bash ~/.local/share/paperfetcher/installer/onboard_interests.sh
+  ```
+
+  The chat reads your existing `interests.md` first and offers to refine it,
+  so you won't lose your previous draft unless you ask it to start over.
+
 - **`settings.toml`** — episode length, voice IDs, schedule, Drive folder.
   The wizard wrote sensible values; tune by hand if you want.
 

@@ -241,37 +241,6 @@ def step_elevenlabs() -> tuple[str, str, str, str]:
     return api_key, voice_a, voice_b, model
 
 
-def step_interests() -> None:
-    section("Research interests")
-    while True:
-        prose = gum_write(
-            header=(
-                "Describe your research interests in 3-6 sentences. "
-                "Be SPECIFIC — the embedding model and Claude both read this "
-                "to pick the single best paper of the day from cs.AI / cs.LG "
-                "/ cs.RO / cs.CV / cs.CL.\n"
-                "Good: 'I work on imitation learning for dexterous "
-                "manipulation. I care about sim-to-real transfer, action "
-                "chunking, diffusion policies, tactile sensing. Less "
-                "interested in benchmark-only papers without a real-robot "
-                "component.'\n"
-                "Bad: 'machine learning'."
-            ),
-            placeholder="Start typing here...",
-        )
-        if len(prose.strip()) < 40:
-            print("  Too short — please write at least a few sentences. "
-                  "The ranker can't filter on '{}'.".format(prose.strip()[:30]))
-            continue
-        break
-
-    body = "# Research interests\n\n" + prose.strip() + "\n"
-    target = REPO_ROOT / "config" / "interests.md"
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(body, encoding="utf-8")
-    print(f"  Saved to {target}. Edit later if you want to refine.")
-
-
 def step_schedule() -> str:
     section("Schedule")
     print("  PaperFetcher runs Mon-Fri only — arXiv doesn't publish on")
@@ -395,7 +364,6 @@ def main() -> int:
         voice_a, voice_b = step_edge_voices()
         api_key, elevenlabs_model = "", "eleven_turbo_v2_5"
 
-    step_interests()
     oncalendar = step_schedule()
     rclone_remote, rclone_folder = step_rclone()
 
@@ -424,16 +392,18 @@ def main() -> int:
     write_systemd_units(oncalendar=oncalendar)
     maybe_enable_linger()
 
-    section("Done")
+    section("Wizard done")
     styled_box(
-        "Smoke test:        bash run.sh --dry-run\n"
-        "Trigger now:       systemctl --user start paperfetcher.service\n"
-        "Watch live:        journalctl --user -u paperfetcher -f\n"
-        "Next firing:       systemctl --user list-timers paperfetcher.timer\n"
-        "Uninstall later:   bash uninstall.sh"
+        "Config + systemd are set up. The next step is the interests chat\n"
+        "with Claude — your installer will launch it in a moment.\n\n"
+        "After that, useful commands:\n"
+        "  Smoke test:       bash run.sh --dry-run\n"
+        "  Trigger now:      systemctl --user start paperfetcher.service\n"
+        "  Watch live:       journalctl --user -u paperfetcher -f\n"
+        "  Next firing:      systemctl --user list-timers paperfetcher.timer\n"
+        "  Redefine interests: bash installer/onboard_interests.sh\n"
+        "  Uninstall later:  bash uninstall.sh"
     )
-    if gum_confirm("Run a dry-run now (fetch + rank only, no audio, no delivery)?"):
-        subprocess.run(["bash", str(REPO_ROOT / "run.sh"), "--dry-run"], check=False)
     return 0
 
 
