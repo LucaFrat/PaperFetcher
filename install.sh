@@ -62,10 +62,22 @@ sudo apt-get install -y \
 
 # ---------- gum (via .deb, faster than apt repo) ----------
 if ! command -v gum >/dev/null 2>&1; then
+    # gum publishes .debs for amd64 / arm64 / armv7. Pick the right one so
+    # the installer works on Raspberry Pi and ARM cloud VMs too.
+    case "$(uname -m)" in
+        x86_64|amd64)  gum_arch="amd64" ;;
+        aarch64|arm64) gum_arch="arm64" ;;
+        armv7*|armhf)  gum_arch="armv7" ;;
+        *)
+            echo "✗ Unsupported CPU architecture: $(uname -m)" >&2
+            echo "  gum doesn't publish a .deb for it. See https://github.com/charmbracelet/gum/releases" >&2
+            exit 1
+            ;;
+    esac
     echo "Installing gum..."
     tmp_deb="$(mktemp --suffix=.deb)"
     wget -qO "${tmp_deb}" \
-        "https://github.com/charmbracelet/gum/releases/download/v${GUM_VERSION}/gum_${GUM_VERSION}_amd64.deb"
+        "https://github.com/charmbracelet/gum/releases/download/v${GUM_VERSION}/gum_${GUM_VERSION}_${gum_arch}.deb"
     sudo apt-get install -y --allow-downgrades "${tmp_deb}" >/dev/null 2>&1
     rm -f "${tmp_deb}"
 fi
@@ -92,6 +104,19 @@ if ! command -v claude >/dev/null 2>&1; then
   1. Install:       ${CLAUDE_DOCS}
   2. Authenticate:  claude login   (pick your Max-plan account)
   3. Re-run this installer.
+
+EOF
+    exit 1
+fi
+
+# Installed but not authenticated → both the interests chat and the daily
+# pipeline runs will fail. Catch this here with a friendly message instead.
+if ! claude auth status --json 2>/dev/null | grep -qE '"loggedIn"[[:space:]]*:[[:space:]]*true'; then
+    cat <<EOF >&2
+
+✗ Claude Code CLI is installed but not authenticated.
+  Run:  claude login
+  Then re-run this installer.
 
 EOF
     exit 1
