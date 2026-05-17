@@ -113,4 +113,11 @@ spin "Installing Python dependencies..." uv sync --quiet
 # child processes inherit that — so gum input/choose see EOF and return empty.
 # /dev/tty is the user's actual terminal regardless of how we were invoked.
 echo
-exec uv run python -m installer.setup_wizard </dev/tty
+uv run python -m installer.setup_wizard </dev/tty
+
+# Reset interests.md so the Claude onboarding chat starts from a blank state
+# rather than inheriting the maintainer's defaults from the committed file.
+: > "${INSTALL_DIR}/config/interests.md"
+
+# ---------- final step: interests chat with Claude ----------
+bash "${INSTALL_DIR}/installer/onboard_interests.sh"
