@@ -12,6 +12,34 @@ between two co-hosts about it, synthesizes the audio with two distinct voices,
 and drops the episode in your Google Drive folder. By the time you wake up,
 it's on your phone — ready for the morning commute.
 
+## Install
+
+> ⚠️ **First check the [prerequisites](#before-you-install) below** —
+> Ubuntu/Debian with `sudo`, plus Claude Code installed and logged in.
+
+**This is the only command you need to run:**
+
+```bash
+wget -qO- https://raw.githubusercontent.com/LucaFrat/PaperFetcher/main/install.sh | bash
+```
+
+The installer takes about 10 minutes — most of that is the Google Drive
+browser auth — and walks you through a setup wizard:
+
+1. **Episode length** — anywhere from 5 to 15 minutes.
+2. **Voices** — free Edge TTS voices, or your two ElevenLabs voice IDs.
+3. **Schedule** — which days (weekdays only or every day) and what time
+   the pipeline should run.
+4. **Google Drive** — launches `rclone config` if you haven't set up a
+   remote yet.
+5. **Research interests** — an interactive **Claude Code chat** opens to
+   help you describe what you actually work on. Claude asks focused
+   questions, shows you drafts in markdown as you go, and writes
+   `config/interests.md` once you confirm. Type `/exit` when done.
+
+When the chat ends, the pipeline is armed and will fire automatically on
+your chosen schedule.
+
 ## What you get each day
 
 In a folder named like `2026-05-12/`, locally and synced to your Drive:
@@ -50,31 +78,6 @@ You'll need:
   ```
 
   (Add it to `~/.bashrc` or `~/.zshrc` to keep it across shells.)
-
-## Install
-
-One command:
-
-```bash
-wget -qO- https://raw.githubusercontent.com/LucaFrat/PaperFetcher/main/install.sh | bash
-```
-
-The installer takes about 10 minutes — most of that is the Google Drive
-browser auth — and walks you through a setup wizard:
-
-1. **Episode length** — anywhere from 5 to 15 minutes.
-2. **Voices** — free Edge TTS voices, or your two ElevenLabs voice IDs.
-3. **Schedule** — which days (weekdays only or every day) and what time
-   the pipeline should run.
-4. **Google Drive** — launches `rclone config` if you haven't set up a
-   remote yet.
-5. **Research interests** — an interactive **Claude Code chat** opens to
-   help you describe what you actually work on. Claude asks focused
-   questions, shows you drafts in markdown as you go, and writes
-   `config/interests.md` once you confirm. Type `/exit` when done.
-
-When the chat ends, the pipeline is armed and will fire automatically on
-your chosen schedule.
 
 ## After install
 
