@@ -2,7 +2,7 @@
 
 # PaperFetcher
 
-> Every weekday morning, a fresh AI / robotics paper from arXiv lands on your phone as a 10-minute podcast.
+> Every morning, a fresh AI / robotics paper from arXiv lands on your phone as a 10-minute podcast.
 
 Reading the latest research is hard to fit into a busy week. PaperFetcher does
 it for you while you sleep: it scans the day's arXiv submissions in AI,
@@ -37,7 +37,7 @@ auth — and walks you through a friendly setup wizard:
 1. **Episode length** — anywhere from 5 to 15 minutes.
 2. **Voices** — pick free Edge TTS voices, or paste in your two ElevenLabs
    voice IDs for premium quality.
-3. **Schedule** — what time each weekday morning the pipeline should run.
+3. **Schedule** — which days (weekdays only or every day) and what time the pipeline should run.
 4. **Google Drive** — the wizard launches `rclone config` if you haven't set
    up a remote yet.
 
@@ -50,7 +50,7 @@ description than free-form typing usually does.
 
 When you're happy with the draft, ask Claude to save it and type `/exit` to
 return to the installer. The pipeline is then armed and will fire
-automatically every weekday.
+automatically on your chosen schedule.
 
 ### Before you install
 
@@ -99,8 +99,8 @@ systemctl --user list-timers paperfatcher.timer
 | **Edge TTS** *(default, decent quality)* | free |
 | **ElevenLabs** *(optional, premium voices)* | $22/mo (Creator tier) |
 
-A typical 10-minute weekday episode uses ~5,500 ElevenLabs credits — well
-within the Creator monthly allowance.
+A typical 10-minute episode uses ~5,500 ElevenLabs credits — well within
+the Creator monthly allowance.
 
 ## Customize later
 
@@ -142,9 +142,12 @@ log out.
 sudo loginctl enable-linger "$USER"
 ```
 
-**Weekend runs produce nothing.**
-Expected — arXiv only publishes Monday–Friday. The timer is configured for
-weekdays only for this reason.
+**Weekend runs occasionally produce nothing.**
+arXiv announces papers Mon-Fri. If you chose "Every day" at install time,
+weekend runs pull from the 72-hour fetch window — usually enough material,
+but on quiet weeks you may get a "0 papers" no-op. The pipeline logs this
+and exits cleanly. If you'd rather skip weekends entirely, re-run the
+wizard and pick "Weekdays only".
 
 **ElevenLabs error: "quota_exceeded".**
 Either the per-API-key credit cap is set too low (raise it to "Unlimited" in

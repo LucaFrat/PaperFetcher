@@ -243,15 +243,23 @@ def step_elevenlabs() -> tuple[str, str, str, str]:
 
 def step_schedule() -> str:
     section("Schedule")
-    print("  PaperFetcher runs Mon-Fri only — arXiv doesn't publish on")
-    print("  Saturdays or Sundays, so weekend runs would no-op.")
+    print("  arXiv mostly publishes Mon-Fri, but the 72-hour fetch window")
+    print("  means weekend runs can still find recent papers to digest.")
+    days_label = gum_choose(
+        header="Which days should PaperFetcher run?",
+        options=[
+            "Weekdays only — Mon..Fri (matches arXiv's announce schedule)",
+            "Every day     — Mon..Sun (also produces weekend digests)",
+        ],
+    )
+    weekday_prefix = "Mon..Fri " if days_label.startswith("Weekdays") else ""
     hhmm = ask_time_hhmm(
         prompt="Time (HH:MM)> ",
-        header="When should the cron fire each weekday? 24-hour format. "
+        header="When should the cron fire? 24-hour format. "
                "Pick early-morning so the episode is ready for your commute.",
         default="05:30",
     )
-    return f"Mon..Fri *-*-* {hhmm}:00"
+    return f"{weekday_prefix}*-*-* {hhmm}:00"
 
 
 def step_rclone() -> tuple[str, str]:
