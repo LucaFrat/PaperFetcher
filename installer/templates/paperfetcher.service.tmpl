@@ -5,7 +5,15 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
+# systemd user services don't inherit the interactive shell PATH, so bare
+# `uv` (installed by install.sh into ~/.local/bin) isn't resolvable without
+# this. %h expands to the running user's $HOME.
+Environment=PATH=%h/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 WorkingDirectory={repo_path}
+# Self-healing: StandardOutput=append: does not auto-create parent dirs, so
+# if logs/ is ever removed (housekeeping, fresh clone) the service would
+# fail with 209/STDOUT without this.
+ExecStartPre=/usr/bin/mkdir -p {repo_path}/logs
 ExecStart=/usr/bin/env bash {repo_path}/run.sh
 StandardOutput=append:{repo_path}/logs/systemd.out.log
 StandardError=append:{repo_path}/logs/systemd.err.log

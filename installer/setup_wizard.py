@@ -329,6 +329,10 @@ def write_env_d_for_elevenlabs(api_key: str) -> None:
 def write_systemd_units(*, oncalendar: str) -> None:
     user_units = Path.home() / ".config" / "systemd" / "user"
     user_units.mkdir(parents=True, exist_ok=True)
+    # The unit redirects stdout/stderr into logs/ via append:; systemd does
+    # not auto-create the parent dir, so first run fails with 209/STDOUT
+    # without this. (The unit also has ExecStartPre=mkdir -p as a safety net.)
+    (REPO_ROOT / "logs").mkdir(exist_ok=True)
     service = (TEMPLATES / "paperfetcher.service.tmpl").read_text().format(
         repo_path=str(REPO_ROOT),
     )
