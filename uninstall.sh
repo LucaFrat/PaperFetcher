@@ -106,11 +106,12 @@ if [[ -f "${ENV_FILE}" ]]; then
 else
     skipped "${ENV_FILE} (does not exist)"
 fi
-# unset-environment can silently no-op for vars that came in via
-# import-environment (observed on systemd 255). Blank the value first so
-# even if unset is ineffective there's no key left behind.
+# Blank the value via set-environment. Don't also call unset-environment:
+# on systemd 255 that observably re-exposes the underlying value from the
+# calling session's env (the very value we just blanked) instead of
+# removing the entry. set-environment to empty is the only operation that
+# actually leaves the manager with no real key.
 systemctl --user set-environment ELEVENLABS_API_KEY= 2>/dev/null || true
-systemctl --user unset-environment ELEVENLABS_API_KEY 2>/dev/null || true
 
 # ---------- 4. install directory ----------
 step "Removing install directory"
