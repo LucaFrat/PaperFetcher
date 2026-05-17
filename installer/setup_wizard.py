@@ -172,26 +172,6 @@ def ask_time_hhmm(*, prompt: str, header: str, default: str) -> str:
         print("  Need HH:MM in 24-hour format, e.g. 05:30 or 18:00.")
 
 
-def _rclone_remote_works(remote: str) -> tuple[bool, str]:
-    """Lightweight auth probe — `rclone lsd remote:` lists root folders.
-
-    Cheap and catches the common failure modes (no token, expired token,
-    orphan custom client_id like the one Google rejects with invalid_client).
-    Returns (ok, last_error_line).
-    """
-    try:
-        r = subprocess.run(
-            ["rclone", "lsd", f"{remote}:"],
-            capture_output=True, text=True, timeout=30,
-        )
-    except subprocess.TimeoutExpired:
-        return False, "rclone lsd timed out after 30s"
-    if r.returncode == 0:
-        return True, ""
-    err_lines = (r.stderr or r.stdout).strip().splitlines()
-    return False, err_lines[-1] if err_lines else f"exit {r.returncode}"
-
-
 # ---------- per-step wizard ----------
 
 def step_episode() -> int:
@@ -313,20 +293,6 @@ def step_rclone() -> tuple[str, str]:
         print(f"     auto-config = yes  (opens your browser)")
         if gum_confirm("Run rclone config now?"):
             subprocess.run(["rclone", "config"], check=False)
-    # Auth probe loop. Catches the gotcha that bit you (broken/orphan client_id,
-    # expired token) before it costs you 5 min of Claude + ElevenLabs work on
-    # tomorrow's run. User can still skip if they're fine with local fallback.
-    while True:
-        ok, err = _rclone_remote_works(remote)
-        if ok:
-            print(f"  ✓ rclone '{remote}:' authenticates")
-            break
-        print(f"  ✗ rclone can't list '{remote}:' — {err}")
-        if not gum_confirm(f"Re-run rclone config to fix '{remote}'?"):
-            print(f"  (continuing — daily runs will fall back to local delivery "
-                  f"at ~/PaperFetcher-output/ until '{remote}:' is fixed)")
-            break
-        subprocess.run(["rclone", "config"], check=False)
     folder = gum_input(
         prompt="Drive folder> ",
         header="Subfolder inside your Drive root where dated episode folders "
@@ -389,7 +355,7 @@ def write_systemd_units(*, oncalendar: str) -> None:
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def step_verify(*, audio_backend: str, rclone_remote: str) -> int:
+def step_verify(*, audio_backend: str) -> int:
     """End-of-wizard sanity check.
 
     Reads the actual state the wizard just produced (files on disk + systemd
@@ -463,10 +429,6 @@ def step_verify(*, audio_backend: str, rclone_remote: str) -> int:
     next_us = systemctl_value("show", "paperfetcher.timer",
                               "-p", "NextElapseUSecRealtime", "--value")
     check("timer has a scheduled next-fire", next_us not in ("", "0"))
-
-    # rclone target still works (warn-only — local fallback exists)
-    ok, err = _rclone_remote_works(rclone_remote)
-    check(f"rclone '{rclone_remote}:' authenticates", ok, err, critical=False)
 
     # linger (warn-only — user can skip)
     linger = subprocess.run(
@@ -552,10 +514,7 @@ def main() -> int:
     write_systemd_units(oncalendar=oncalendar)
     maybe_enable_linger()
 
-    verify_rc = step_verify(
-        audio_backend=audio_backend,
-        rclone_remote=rclone_remote,
-    )
+    verify_rc = step_verify(audio_backend=audio_backend)
     if verify_rc != 0:
         return verify_rc
 
