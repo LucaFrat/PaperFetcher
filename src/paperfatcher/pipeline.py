@@ -82,15 +82,7 @@ def main(argv: list[str] | None = None) -> int:
         exclude_ids=excluded,
     )
     if not papers:
-        # arXiv doesn't publish on Sat/Sun (the RSS feed declares
-        # <skipDays>Saturday, Sunday</skipDays>), so 0 papers on a weekend
-        # is expected — not a fault. Log accordingly.
-        from datetime import datetime
-        if datetime.now().weekday() >= 5:
-            logger.info("0 papers — arXiv doesn't announce on weekends. "
-                        "Next batch lands Monday.")
-        else:
-            logger.warning("no papers after fetch+exclude — nothing to do")
+        logger.warning("no papers after fetch+exclude — nothing to do")
         return 0
 
     paper = rank_mod.pick_top(

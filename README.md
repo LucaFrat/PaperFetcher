@@ -189,11 +189,11 @@ log out.
 sudo loginctl enable-linger "$USER"
 ```
 
-**Weekend runs occasionally produce nothing.**
-arXiv announces papers Mon-Fri. If you chose "Every day" at install time,
-weekend runs pull from the 72-hour fetch window — usually enough material,
-but on quiet weeks you may get a "0 papers" no-op. The pipeline logs this
-and exits cleanly. If you'd rather skip weekends entirely, re-run the
+**A run picked nothing.**
+The fetcher queries the arXiv API for papers submitted in the past 72
+hours, so this should be rare — typically only if `picked.json` already
+covers every recent paper in your categories. The pipeline logs a warning
+and exits cleanly. If you don't want weekend digests at all, re-run the
 wizard and pick "Weekdays only".
 
 **ElevenLabs error: "quota_exceeded".**
