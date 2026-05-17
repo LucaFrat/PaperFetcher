@@ -5,6 +5,7 @@ import os
 import re
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -171,6 +172,26 @@ def ask_time_hhmm(*, prompt: str, header: str, default: str) -> str:
         print("  Need HH:MM in 24-hour format, e.g. 05:30 or 18:00.")
 
 
+def _rclone_remote_works(remote: str) -> tuple[bool, str]:
+    """Lightweight auth probe — `rclone lsd remote:` lists root folders.
+
+    Cheap and catches the common failure modes (no token, expired token,
+    orphan custom client_id like the one Google rejects with invalid_client).
+    Returns (ok, last_error_line).
+    """
+    try:
+        r = subprocess.run(
+            ["rclone", "lsd", f"{remote}:"],
+            capture_output=True, text=True, timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        return False, "rclone lsd timed out after 30s"
+    if r.returncode == 0:
+        return True, ""
+    err_lines = (r.stderr or r.stdout).strip().splitlines()
+    return False, err_lines[-1] if err_lines else f"exit {r.returncode}"
+
+
 # ---------- per-step wizard ----------
 
 def step_episode() -> int:
@@ -292,6 +313,20 @@ def step_rclone() -> tuple[str, str]:
         print(f"     auto-config = yes  (opens your browser)")
         if gum_confirm("Run rclone config now?"):
             subprocess.run(["rclone", "config"], check=False)
+    # Auth probe loop. Catches the gotcha that bit you (broken/orphan client_id,
+    # expired token) before it costs you 5 min of Claude + ElevenLabs work on
+    # tomorrow's run. User can still skip if they're fine with local fallback.
+    while True:
+        ok, err = _rclone_remote_works(remote)
+        if ok:
+            print(f"  ✓ rclone '{remote}:' authenticates")
+            break
+        print(f"  ✗ rclone can't list '{remote}:' — {err}")
+        if not gum_confirm(f"Re-run rclone config to fix '{remote}'?"):
+            print(f"  (continuing — daily runs will fall back to local delivery "
+                  f"at ~/PaperFetcher-output/ until '{remote}:' is fixed)")
+            break
+        subprocess.run(["rclone", "config"], check=False)
     folder = gum_input(
         prompt="Drive folder> ",
         header="Subfolder inside your Drive root where dated episode folders "
@@ -354,6 +389,112 @@ def write_systemd_units(*, oncalendar: str) -> None:
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
+def step_verify(*, audio_backend: str, rclone_remote: str) -> int:
+    """End-of-wizard sanity check.
+
+    Reads the actual state the wizard just produced (files on disk + systemd
+    user manager state) and reports per-check pass/fail. Critical failures
+    return non-zero so install.sh aborts and the user investigates instead
+    of waiting for tomorrow's silent breakage.
+    """
+    section("Final verification")
+    failures: list[str] = []
+    warnings: list[str] = []
+
+    def check(label: str, ok: bool, detail: str = "", *, critical: bool = True) -> None:
+        if ok:
+            print(f"  ✓ {label}")
+            return
+        mark = "✗" if critical else "·"
+        suffix = f" — {detail}" if detail else ""
+        print(f"  {mark} {label}{suffix}")
+        (failures if critical else warnings).append(label)
+
+    # settings.toml exists and is valid TOML
+    settings_path = REPO_ROOT / "config" / "settings.toml"
+    try:
+        with settings_path.open("rb") as f:
+            tomllib.load(f)
+        check("settings.toml exists and is valid TOML", True)
+    except FileNotFoundError:
+        check("settings.toml exists and is valid TOML", False, f"missing {settings_path}")
+    except tomllib.TOMLDecodeError as e:
+        check("settings.toml exists and is valid TOML", False, f"parse error: {e}")
+
+    # ElevenLabs key plumbing (only if that backend was chosen)
+    if audio_backend == "elevenlabs":
+        env_file = Path.home() / ".config" / "environment.d" / "paperfetcher.conf"
+        if env_file.exists():
+            mode = env_file.stat().st_mode & 0o777
+            check(f"ElevenLabs key file present, mode {oct(mode)[2:]}",
+                  mode == 0o600,
+                  f"expected 600, got {oct(mode)[2:]}")
+        else:
+            check("ElevenLabs key file present", False, f"missing {env_file}")
+        envout = subprocess.run(
+            ["systemctl", "--user", "show-environment"],
+            capture_output=True, text=True,
+        ).stdout
+        loaded = any(
+            line.startswith("ELEVENLABS_API_KEY=") and len(line) > len("ELEVENLABS_API_KEY=")
+            for line in envout.splitlines()
+        )
+        check("ELEVENLABS_API_KEY loaded into systemd user env", loaded,
+              "import-environment may have failed; re-run installer")
+
+    # systemd unit files exist on disk
+    unit_dir = Path.home() / ".config" / "systemd" / "user"
+    for fname in ("paperfetcher.service", "paperfetcher.timer"):
+        check(f"unit file {fname} present", (unit_dir / fname).exists())
+
+    # timer enabled + active
+    def systemctl_value(*args: str) -> str:
+        return subprocess.run(
+            ["systemctl", "--user", *args],
+            capture_output=True, text=True,
+        ).stdout.strip()
+
+    enabled = systemctl_value("is-enabled", "paperfetcher.timer")
+    check(f"timer enabled (is-enabled={enabled})", enabled == "enabled")
+    active = systemctl_value("is-active", "paperfetcher.timer")
+    check(f"timer active (is-active={active})", active == "active")
+
+    # timer has a real scheduled next-fire (OnCalendar populated)
+    next_us = systemctl_value("show", "paperfetcher.timer",
+                              "-p", "NextElapseUSecRealtime", "--value")
+    check("timer has a scheduled next-fire", next_us not in ("", "0"))
+
+    # rclone target still works (warn-only — local fallback exists)
+    ok, err = _rclone_remote_works(rclone_remote)
+    check(f"rclone '{rclone_remote}:' authenticates", ok, err, critical=False)
+
+    # linger (warn-only — user can skip)
+    linger = subprocess.run(
+        ["loginctl", "show-user", os.environ["USER"]],
+        capture_output=True, text=True,
+    ).stdout
+    check("linger enabled (timer fires when logged out)",
+          "Linger=yes" in linger,
+          "without linger, timer pauses between logout and next login",
+          critical=False)
+
+    print()
+    if failures:
+        styled_box(
+            f"⚠ {len(failures)} critical check(s) failed — see above.\n"
+            "Tomorrow's scheduled run won't work. Fix and re-run installer."
+        )
+        return 1
+    if warnings:
+        styled_box(
+            f"Wizard checks green, with {len(warnings)} non-critical warning(s).\n"
+            "Daily run will work; warnings affect convenience or delivery only."
+        )
+    else:
+        styled_box("All wizard checks passed ✓")
+    return 0
+
+
 def maybe_enable_linger() -> None:
     state = subprocess.run(
         ["loginctl", "show-user", os.environ["USER"]],
@@ -410,6 +551,13 @@ def main() -> int:
         write_env_d_for_elevenlabs(api_key)
     write_systemd_units(oncalendar=oncalendar)
     maybe_enable_linger()
+
+    verify_rc = step_verify(
+        audio_backend=audio_backend,
+        rclone_remote=rclone_remote,
+    )
+    if verify_rc != 0:
+        return verify_rc
 
     section("Wizard done")
     styled_box(
