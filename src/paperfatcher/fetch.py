@@ -22,6 +22,13 @@ _OS_NS = "http://a9.com/-/spec/opensearch/1.1/"
 # window; if we ever hit it we'd need pagination via the `start` parameter.
 _MAX_RESULTS_PER_CATEGORY = 500
 
+# If every category returns 0 (almost always means arxiv is in a rate-limit
+# /load window across the whole API), wait this long and try the full batch
+# once more before giving up for the day. Observed real failure: an entire
+# scheduled 06:00 run got HTTP 429 on all 5 categories with our per-call
+# backoffs (10s, 30s) not enough to clear the window.
+_BATCH_RETRY_WAIT_SECONDS = 15 * 60
+
 # arXiv categories the pipeline pulls from. PaperFetcher targets the AI /
 # robotics community, so this set is hardcoded — the per-user filtering
 # happens later (embedding ranker + Claude) using config/interests.md prose.
@@ -178,6 +185,35 @@ def _fetch_category(
     return out
 
 
+def _fetch_batch(
+    categories: list[str],
+    *,
+    since: datetime,
+    until: datetime,
+    request_delay_seconds: float,
+    exclude_ids: set[str],
+) -> list[Paper]:
+    """One pass over all categories. Per-category errors are swallowed
+    (logged + skipped) so a single 429 doesn't poison the rest of the batch.
+    """
+    seen: set[str] = set()
+    papers: list[Paper] = []
+    for i, cat in enumerate(categories):
+        if i > 0:
+            time.sleep(request_delay_seconds)
+        try:
+            entries = _fetch_category(cat, since=since, until=until)
+        except requests.RequestException as e:
+            logger.warning("API fetch for %s failed: %s", cat, e)
+            continue
+        for p in entries:
+            if p.id in seen or p.id in exclude_ids:
+                continue
+            seen.add(p.id)
+            papers.append(p)
+    return papers
+
+
 def fetch_recent(
     *,
     categories: list[str],
@@ -190,23 +226,25 @@ def fetch_recent(
 
     until = datetime.now(timezone.utc)
     since = until - timedelta(hours=window_hours)
-    seen: set[str] = set()
-    papers: list[Paper] = []
+    papers = _fetch_batch(
+        categories, since=since, until=until,
+        request_delay_seconds=request_delay_seconds, exclude_ids=exclude_ids,
+    )
 
-    for i, cat in enumerate(categories):
-        if i > 0:
-            time.sleep(request_delay_seconds)
-        try:
-            entries = _fetch_category(cat, since=since, until=until)
-        except requests.RequestException as e:
-            logger.warning("API fetch for %s failed: %s", cat, e)
-            continue
-
-        for p in entries:
-            if p.id in seen or p.id in exclude_ids:
-                continue
-            seen.add(p.id)
-            papers.append(p)
+    # If every category came back empty in the first pass, it's almost
+    # always arxiv being load-shedding across the whole API (per-call
+    # backoffs of 10s + 30s aren't enough for some 429 windows). Wait a
+    # while and try the whole batch once more before giving up.
+    if not papers:
+        logger.warning("0 papers from full batch — waiting %ds then retrying "
+                       "the whole fetch once", _BATCH_RETRY_WAIT_SECONDS)
+        time.sleep(_BATCH_RETRY_WAIT_SECONDS)
+        until = datetime.now(timezone.utc)
+        since = until - timedelta(hours=window_hours)
+        papers = _fetch_batch(
+            categories, since=since, until=until,
+            request_delay_seconds=request_delay_seconds, exclude_ids=exclude_ids,
+        )
 
     logger.info("fetched %d papers from %d categories "
                 "(window %s → %s, excluded %d)",
